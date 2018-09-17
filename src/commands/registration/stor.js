@@ -1,4 +1,5 @@
 const Promise = require('bluebird');
+const fsUtils = require("nodejs-fs-utils");
 
 module.exports = {
   directive: 'STOR',
@@ -8,6 +9,8 @@ module.exports = {
 
     const append = command.directive === 'APPE';
     const fileName = command.arg;
+
+    let totalSize = fsUtils.fsizeSync(this.fs._root);
 
     return this.connector.waitForConnection()
     .tap(() => this.commandSocket.pause())
@@ -27,13 +30,26 @@ module.exports = {
         this.connector.socket.on('data', data => {
           if (this.connector.socket) this.connector.socket.pause();
           if (stream) {
-            stream.write(data, this.transferType, () => this.connector.socket && this.connector.socket.resume());
+            totalSize += data.length;
+
+            if (totalSize > 50000000) {
+              this.connector.socket.emit('error', new Error('Out of space!'))
+            } else {
+              stream.write(data, this.transferType, () => this.connector.socket && this.connector.socket.resume());
+            }
           }
         });
         this.connector.socket.once('end', () => {
           if (stream.listenerCount('close')) stream.emit('close');
           else stream.end();
-          resolve();
+          //Check again
+          if (fsUtils.fsizeSync(this.fs._root) > 50000000) {
+            this.fs.delete(fileName);
+            reject(new Error('Out of space!'));
+          } else {
+            resolve();
+          }
+
         });
         this.connector.socket.once('error', destroyConnection(stream, reject));
       });
