@@ -32,7 +32,7 @@ module.exports = {
           if (stream) {
             totalSize += data.length;
 
-            if (totalSize > 50000000) {
+            if (totalSize > 52428800) {
               this.connector.socket.emit('error', new Error('Out of space!'))
             } else {
               stream.write(data, this.transferType, () => this.connector.socket && this.connector.socket.resume());
@@ -43,7 +43,7 @@ module.exports = {
           if (stream.listenerCount('close')) stream.emit('close');
           else stream.end();
           //Check again
-          if (fsUtils.fsizeSync(this.fs._root) > 50000000) {
+          if (fsUtils.fsizeSync(this.fs._root) > 52428800) {
             this.fs.delete(fileName);
             reject(new Error('Out of space!'));
           } else {
